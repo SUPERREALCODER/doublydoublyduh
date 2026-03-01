@@ -153,6 +153,17 @@ export default function NeuroHealth2View() {
 
     return (
         <div className="bg-[#0a0a0a] text-white min-h-[800px] font-sans selection:bg-purple-500/30 rounded-[40px] overflow-hidden shadow-2xl relative border border-white/5">
+            {/* Work in progress overlay */}
+            <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+                <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem] max-w-md shadow-2xl animate-pulse">
+                    <Brain className="w-12 h-12 text-purple-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-white mb-3">Feature Under Development</h2>
+                    <p className="text-white/50 text-sm leading-relaxed">
+                        The Neuro Coach is currently synthesizing your data to provide bespoke wisdom. Prepare for a higher state of self-awareness.
+                    </p>
+                </div>
+            </div>
+
             {/* Dynamic Background */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-600/10 blur-[120px] rounded-full mix-blend-screen" />
