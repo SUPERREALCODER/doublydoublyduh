@@ -82,12 +82,12 @@ Pre-built binaries are included in this repo for convenience.
 
 ### Android APK
 
-> **[Aham-App/Aham-Offline-Sync.apk](Aham-App/Aham-Offline-Sync.apk)**
+> **[releases/Aham-Offline-Sync.apk](releases/Aham-Offline-Sync.apk)**
 > Includes LAN sync — the mobile app can sync with your desktop over local Wi-Fi.
 
 Install via ADB:
 ```bash
-adb install Aham-App/Aham-Offline-Sync.apk
+adb install releases/Aham-Offline-Sync.apk
 ```
 Or copy the `.apk` directly to your phone and install manually (enable *Install Unknown Apps* in settings).
 
@@ -95,11 +95,11 @@ Or copy the `.apk` directly to your phone and install manually (enable *Install 
 
 ### Linux Desktop (.deb)
 
-> **[Aham-Desktop.deb](Aham-Desktop.deb)**
+> **[releases/Aham-Desktop.deb](releases/Aham-Desktop.deb)**
 
 Install:
 ```bash
-sudo dpkg -i Aham-Desktop.deb
+sudo dpkg -i releases/Aham-Desktop.deb
 ```
 
 The desktop app is a native Tauri window — no browser required.
