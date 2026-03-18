@@ -13,17 +13,14 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Camera,
-  ClipboardList,
-  Layout,
   Heart,
-  Brain,
-  Activity
+  Brain
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, MOODS } from './utils';
-import { Entry, Target, Task, ReflectionAnswers, RoutineTemplate } from './types';
-import { generateDailyImage, analyzePatterns } from './services/gemini';
+import { Entry, Target, Task, ReflectionAnswers } from './types';
+import { analyzePatterns } from './services/gemini';
+import { runInsightEngine, DailyState } from './services/InsightEngine';
 import {
   LineChart,
   Line,
@@ -36,19 +33,17 @@ import {
   Area
 } from 'recharts';
 import Markdown from 'react-markdown';
-import HealthVistaView from './components/HealthVistaView';
+
 import NeuroHealth1View from './components/NeuroHealth1View';
 import NeuroHealth2View from './components/NeuroHealth2View';
 
 export default function App() {
   console.log("APP COMPONENT IS MOUNTING");
-  const [activeTab, setActiveTab] = useState<'daily' | 'targets' | 'insights' | 'templates' | 'health' | 'neuro1' | 'neuro2'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'targets' | 'insights' | 'neuro1' | 'neuro2'>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [entry, setEntry] = useState<Entry | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [templates, setTemplates] = useState<RoutineTemplate[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [stars, setStars] = useState<{ id: number, top: string, left: string, size: string, duration: string }[]>([]);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -67,14 +62,7 @@ export default function App() {
 
   useEffect(() => {
     fetchDailyData();
-    fetchTemplates();
   }, [selectedDate]);
-
-  const fetchTemplates = async () => {
-    const res = await fetch('/api/routine-templates');
-    const data = await res.json();
-    setTemplates(data);
-  };
 
   const fetchDailyData = async () => {
     setLoading(true);
@@ -115,25 +103,7 @@ export default function App() {
     });
   };
 
-  const handleGenerateImage = async () => {
-    if (!entry?.journal_text) return;
-    setIsGeneratingImage(true);
-    const completedTasks = tasks.filter(t => t.completed).map(t => t.title);
-    const imageData = await generateDailyImage(entry.journal_text, entry.mood, completedTasks);
-    if (imageData) {
-      await saveEntry({ image_data: imageData });
-    }
-    setIsGeneratingImage(false);
-  };
 
-  const applyTemplate = async (templateId: number) => {
-    await fetch('/api/apply-template', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: dateStr, templateId })
-    });
-    fetchDailyData();
-  };
 
   return (
     <div className="min-h-screen flex flex-col max-w-4xl mx-auto px-4 py-8 relative">
@@ -161,9 +131,7 @@ export default function App() {
         <nav className="flex gap-2 bg-white/5 backdrop-blur-md p-1 rounded-full border border-white/10 flex-wrap justify-center">
           <NavButton active={activeTab === 'daily'} onClick={() => setActiveTab('daily')} icon={<Book size={18} />} label="Daily" />
           <NavButton active={activeTab === 'targets'} onClick={() => setActiveTab('targets')} icon={<TargetIcon size={18} />} label="Targets" />
-          <NavButton active={activeTab === 'templates'} onClick={() => setActiveTab('templates')} icon={<Layout size={18} />} label="Templates" />
           <NavButton active={activeTab === 'insights'} onClick={() => setActiveTab('insights')} icon={<BarChart3 size={18} />} label="Insights" />
-          <NavButton active={activeTab === 'health'} onClick={() => setActiveTab('health')} icon={<Activity size={18} />} label="Health Body" />
           <NavButton active={activeTab === 'neuro1'} onClick={() => setActiveTab('neuro1')} icon={<Heart size={18} />} label="Neuro Core" />
           <NavButton active={activeTab === 'neuro2'} onClick={() => setActiveTab('neuro2')} icon={<Brain size={18} />} label="Neuro Coach" />
         </nav>
@@ -306,24 +274,6 @@ export default function App() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-xs uppercase tracking-widest font-semibold text-accent/70">Daily Routine</label>
-                      {templates.length > 0 && (
-                        <div className="relative group/menu">
-                          <button className="text-[10px] uppercase tracking-widest font-bold text-accent/40 hover:text-accent flex items-center gap-1">
-                            <Plus size={10} /> Apply Template
-                          </button>
-                          <div className="absolute right-0 top-full mt-1 hidden group-hover/menu:block bg-white border border-black/5 shadow-xl rounded-xl p-2 z-10 min-w-[160px]">
-                            {templates.map(t => (
-                              <button
-                                key={t.id}
-                                onClick={() => applyTemplate(t.id)}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-black/5 rounded-lg transition-colors"
-                              >
-                                {t.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="space-y-2">
                       {tasks.map(task => (
@@ -375,28 +325,6 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Daily Image */}
-                  <div className="space-y-3">
-                    <label className="text-xs uppercase tracking-widest font-semibold text-accent/70">Visual Essence</label>
-                    <div className="aspect-square bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden relative group">
-                      {entry?.image_data ? (
-                        <img src={entry.image_data} alt="Daily essence" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-accent/30 p-6 text-center">
-                          <Camera size={32} className="mb-2" />
-                          <p className="text-[10px] uppercase tracking-widest font-bold">No image generated</p>
-                        </div>
-                      )}
-                      <button
-                        onClick={handleGenerateImage}
-                        disabled={isGeneratingImage || !entry?.journal_text}
-                        className="absolute bottom-4 right-4 p-3 bg-white/10 backdrop-blur shadow-lg rounded-full text-accent hover:scale-110 transition-all disabled:opacity-50 border border-white/20"
-                      >
-                        {isGeneratingImage ? <Sparkles className="animate-spin" size={20} /> : <Sparkles size={20} />}
-                      </button>
-                    </div>
-                  </div>
                 </div>
               </div>
             </motion.div>
@@ -406,16 +334,8 @@ export default function App() {
             <TargetsView />
           )}
 
-          {activeTab === 'templates' && (
-            <TemplatesView templates={templates} onUpdate={fetchTemplates} />
-          )}
-
           {activeTab === 'insights' && (
             <InsightsView />
-          )}
-
-          {activeTab === 'health' && (
-            <HealthVistaView />
           )}
 
           {activeTab === 'neuro1' && (
@@ -462,11 +382,10 @@ function ReflectionField({ label, value, onChange }: { label: string, value: str
 
 function TargetsView() {
   const [targets, setTargets] = useState<Target[]>([]);
-  const [type, setType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [type, setType] = useState<'weekly' | 'monthly'>('weekly');
 
   const getPeriodKey = () => {
     const now = new Date();
-    if (type === 'daily') return format(now, 'yyyy-MM-dd');
     if (type === 'weekly') return format(startOfWeek(now), 'yyyy-ww');
     return format(now, 'yyyy-MM');
   };
@@ -497,7 +416,7 @@ function TargetsView() {
       className="space-y-8 relative z-10"
     >
       <div className="flex gap-4 border-b border-white/10">
-        {(['daily', 'weekly', 'monthly'] as const).map(t => (
+        {(['weekly', 'monthly'] as const).map(t => (
           <button
             key={t}
             onClick={() => setType(t)}
@@ -560,120 +479,86 @@ function TargetsView() {
   );
 }
 
-function TemplatesView({ templates, onUpdate }: { templates: RoutineTemplate[], onUpdate: () => void }) {
-  const [newName, setNewName] = useState('');
-  const [newTasks, setNewTasks] = useState<string[]>(['']);
-
-  const handleAddTaskField = () => setNewTasks([...newTasks, '']);
-  const handleTaskChange = (index: number, val: string) => {
-    const updated = [...newTasks];
-    updated[index] = val;
-    setNewTasks(updated);
-  };
-
-  const handleSave = async () => {
-    if (!newName || newTasks.filter(t => t.trim()).length === 0) return;
-    await fetch('/api/routine-templates', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newName, tasks: newTasks.filter(t => t.trim()) })
-    });
-    setNewName('');
-    setNewTasks(['']);
-    onUpdate();
-  };
-
-  const handleDelete = async (id: number) => {
-    await fetch(`/api/routine-templates/${id}`, { method: 'DELETE' });
-    onUpdate();
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-12 relative z-10"
-    >
-      <section className="space-y-6">
-        <h2 className="text-3xl font-serif italic text-white">Routine Templates</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {templates.map(template => (
-            <div key={template.id} className="p-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-sm space-y-4 relative group">
-              <div className="flex justify-between items-start">
-                <h3 className="text-xl font-serif text-white">{template.name}</h3>
-                <button
-                  onClick={() => handleDelete(template.id)}
-                  className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-              <ul className="space-y-2">
-                {template.tasks.map(task => (
-                  <li key={task.id} className="text-sm text-white/60 flex items-center gap-2">
-                    <Circle size={12} className="text-accent/40" />
-                    {task.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-
-          {/* New Template Form */}
-          <div className="p-6 bg-white/5 border border-dashed border-white/20 rounded-3xl space-y-4">
-            <input
-              type="text"
-              placeholder="Template Name (e.g. Morning Routine)"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="w-full bg-transparent border-b border-white/20 font-serif text-xl focus:outline-none focus:border-accent py-1 text-white placeholder:text-white/20"
-            />
-            <div className="space-y-2">
-              {newTasks.map((task, i) => (
-                <input
-                  key={i}
-                  type="text"
-                  placeholder={`Task ${i + 1}`}
-                  value={task}
-                  onChange={(e) => handleTaskChange(i, e.target.value)}
-                  className="w-full bg-transparent border-b border-white/10 text-sm focus:outline-none focus:border-accent py-1 text-white placeholder:text-white/20"
-                />
-              ))}
-              <button
-                onClick={handleAddTaskField}
-                className="text-[10px] uppercase tracking-widest font-bold text-accent/60 hover:text-accent flex items-center gap-1 pt-2"
-              >
-                <Plus size={12} /> Add Task
-              </button>
-            </div>
-            <button
-              onClick={handleSave}
-              className="w-full py-3 bg-accent/20 border border-accent/40 text-white rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-accent/30 transition-all"
-            >
-              Save Template
-            </button>
-          </div>
-        </div>
-      </section>
-    </motion.div>
-  );
-}
 
 function InsightsView() {
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [analysis, setAnalysis] = useState<{ analysis: string, inquiryQuestions: string[] } | null>(null);
+  const [insightResult, setInsightResult] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     fetch('/api/entries').then(res => res.json()).then(setEntries);
   }, []);
 
+  /** Derive DailyState metrics from the loaded journal entries */
+  const buildDailyState = (): DailyState => {
+    const today = entries[0];
+    const recent = entries.slice(0, 4);
+
+    // Sleep hours for the most recent night
+    const sleepHours = (() => {
+      if (!today?.sleep_start || !today?.sleep_end) return 7;
+      const start = new Date(`2000-01-01T${today.sleep_start}`);
+      const end = new Date(`2000-01-01T${today.sleep_end}`);
+      if (end < start) end.setDate(end.getDate() + 1);
+      return (end.getTime() - start.getTime()) / 3_600_000;
+    })();
+
+    // Wake-time variance vs prior 3 days (minutes)
+    const wakeTimeVarianceMinutes = (() => {
+      const wakeMinutes = (e: Entry) => {
+        const [h, m] = (e.sleep_end || '07:00').split(':').map(Number);
+        return h * 60 + m;
+      };
+      if (recent.length < 2) return 0;
+      const todayWake = wakeMinutes(recent[0]);
+      const avg = recent.slice(1).reduce((s, e) => s + wakeMinutes(e), 0) / (recent.length - 1);
+      return Math.abs(todayWake - avg);
+    })();
+
+    // Consecutive negative mood days
+    const NEGATIVE = new Set(['Anxious', 'Sad', 'Angry', 'Tired', 'Meh']);
+    let consecutiveNegativeMoodDays = 0;
+    for (const e of entries) {
+      if (NEGATIVE.has(e.mood)) consecutiveNegativeMoodDays++;
+      else break;
+    }
+
+    // Journal word count for today
+    const journalWordCount = today?.journal_text
+      ? today.journal_text.trim().split(/\s+/).length
+      : 0;
+
+    return {
+      sleepHours,
+      wakeTimeVarianceMinutes,
+      mood: today?.mood || 'Peaceful',
+      consecutiveNegativeMoodDays,
+      journalWordCount,
+      targetsCompletedToday: 0,       // targets not available in entries; extend later
+      daysSinceLastCompletedTarget: 0, // same — hook up from targets API later
+      currentTime: new Date(),
+    };
+  };
+
   const handleAnalyze = async () => {
-    if (entries.length < 3) return;
     setIsAnalyzing(true);
-    const result = await analyzePatterns(entries);
-    setAnalysis(result);
+    setInsightResult(null);
+    // 600ms UX delay for a sense of calculation
+    await new Promise(r => setTimeout(r, 600));
+    const state = buildDailyState();
+    const result = runInsightEngine(state);
+    setInsightResult(result);
     setIsAnalyzing(false);
+  };
+
+  const handleAcknowledge = () => {
+    console.log('[Aham Insight] Acknowledged:', insightResult);
+    setInsightResult(null);
+  };
+
+  const handleAddToRoutine = () => {
+    console.log('[Aham Insight] Add to Routine:', insightResult);
+    // TODO: wire to task creation API
   };
 
   const moodData = entries.slice(0, 7).reverse().map(e => ({
@@ -698,6 +583,7 @@ function InsightsView() {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-12 relative z-10"
     >
+      {/* ── Charts ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-4">
           <label className="text-xs uppercase tracking-widest font-semibold text-accent/70">Mood Trajectory</label>
@@ -740,43 +626,100 @@ function InsightsView() {
         </div>
       </div>
 
+      {/* ── Insight Engine ── */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <label className="text-xs uppercase tracking-widest font-semibold text-accent/70">Pattern Analysis & Self-Inquiry</label>
+          <label className="text-xs uppercase tracking-widest font-semibold text-accent/70">Insight Engine</label>
           <button
+            id="analyze-patterns-btn"
             onClick={handleAnalyze}
-            disabled={isAnalyzing || entries.length < 3}
+            disabled={isAnalyzing || entries.length < 1}
             className="flex items-center gap-2 px-4 py-2 bg-accent/20 border border-accent/40 text-white rounded-full text-xs font-bold uppercase tracking-widest hover:bg-accent/30 transition-all disabled:opacity-50"
           >
-            {isAnalyzing ? <Sparkles className="animate-spin" size={14} /> : <Sparkles size={14} />}
+            <Sparkles size={14} className={isAnalyzing ? 'animate-spin' : ''} />
             Analyze Patterns
           </button>
         </div>
 
-        {analysis ? (
-          <div className="space-y-8">
-            <div className="p-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-sm">
-              <h3 className="text-xl font-serif italic mb-4 text-white">Objective Observations</h3>
-              <p className="text-white/80 leading-relaxed font-serif text-lg">{analysis.analysis}</p>
-            </div>
+        <AnimatePresence mode="wait">
+          {/* ── Loading state ── */}
+          {isAnalyzing && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="p-12 flex flex-col items-center justify-center gap-4 rounded-3xl"
+              style={{
+                border: '1px solid rgba(160,160,255,0.15)',
+                background: 'rgba(160,160,255,0.03)',
+                animation: 'insightPulse 1.8s ease-in-out infinite',
+              }}
+            >
+              <div className="relative w-10 h-10">
+                <div className="absolute inset-0 rounded-full border border-accent/30 animate-ping" />
+                <div className="absolute inset-2 rounded-full border border-accent/60" />
+              </div>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-accent/50 font-semibold">
+                Scanning patterns&hellip;
+              </p>
+            </motion.div>
+          )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {analysis.inquiryQuestions.map((q, i) => (
-                <div key={i} className="p-6 bg-accent/10 border border-accent/20 rounded-2xl">
-                  <p className="text-lg font-serif italic text-accent leading-snug">"{q}"</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="p-12 text-center border-2 border-dashed border-white/10 rounded-3xl">
-            <p className="text-white/20 font-serif italic">
-              {entries.length < 3
-                ? "Record at least 3 days of journaling to unlock pattern analysis."
-                : "Tap 'Analyze Patterns' to begin your self-inquiry."}
-            </p>
-          </div>
-        )}
+          {/* ── Result card ── */}
+          {!isAnalyzing && insightResult && (
+            <motion.div
+              key="result"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className="p-8 bg-white/5 backdrop-blur-xl border border-accent/25 rounded-3xl shadow-[0_0_40px_rgba(160,160,255,0.07)] space-y-6"
+            >
+              {/* Cosmic accent line */}
+              <div className="w-8 h-px bg-gradient-to-r from-accent/60 to-transparent" />
+
+              <p className="text-white/90 leading-relaxed font-serif text-xl">
+                {insightResult}
+              </p>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  id="insight-acknowledge-btn"
+                  onClick={handleAcknowledge}
+                  className="px-5 py-2 rounded-full border border-white/15 text-white/60 text-xs font-bold uppercase tracking-widest hover:border-white/30 hover:text-white/80 transition-all"
+                >
+                  Acknowledge
+                </button>
+                <button
+                  id="insight-add-routine-btn"
+                  onClick={handleAddToRoutine}
+                  className="px-5 py-2 rounded-full bg-accent/20 border border-accent/40 text-white text-xs font-bold uppercase tracking-widest hover:bg-accent/30 transition-all"
+                >
+                  Add to Routine
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Empty / prompt state ── */}
+          {!isAnalyzing && !insightResult && (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="p-12 text-center border-2 border-dashed border-white/10 rounded-3xl"
+            >
+              <p className="text-white/20 font-serif italic">
+                {entries.length < 1
+                  ? "Log your first entry to unlock the Insight Engine."
+                  : "Tap \u2018Analyze Patterns\u2019 to begin your self-inquiry."}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </motion.div>
   );
