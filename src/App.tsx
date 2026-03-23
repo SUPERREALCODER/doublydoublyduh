@@ -13,8 +13,7 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  Heart,
-  Brain
+  Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn, MOODS } from './utils';
@@ -35,11 +34,10 @@ import {
 import Markdown from 'react-markdown';
 
 import NeuroHealth1View from './components/NeuroHealth1View';
-import NeuroHealth2View from './components/NeuroHealth2View';
 
 export default function App() {
   console.log("APP COMPONENT IS MOUNTING");
-  const [activeTab, setActiveTab] = useState<'daily' | 'targets' | 'insights' | 'neuro1' | 'neuro2'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'targets' | 'insights' | 'neuro1'>('daily');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [entry, setEntry] = useState<Entry | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -133,7 +131,6 @@ export default function App() {
           <NavButton active={activeTab === 'targets'} onClick={() => setActiveTab('targets')} icon={<TargetIcon size={18} />} label="Targets" />
           <NavButton active={activeTab === 'insights'} onClick={() => setActiveTab('insights')} icon={<BarChart3 size={18} />} label="Insights" />
           <NavButton active={activeTab === 'neuro1'} onClick={() => setActiveTab('neuro1')} icon={<Heart size={18} />} label="Neuro Core" />
-          <NavButton active={activeTab === 'neuro2'} onClick={() => setActiveTab('neuro2')} icon={<Brain size={18} />} label="Neuro Coach" />
         </nav>
       </header>
 
@@ -342,9 +339,6 @@ export default function App() {
             <NeuroHealth1View />
           )}
 
-          {activeTab === 'neuro2' && (
-            <NeuroHealth2View />
-          )}
         </AnimatePresence>
       </main>
     </div>

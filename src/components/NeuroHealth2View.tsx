@@ -23,6 +23,7 @@ export default function NeuroHealth2View() {
     const [input, setInput] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
+    const [showBanner, setShowBanner] = useState(true);
 
     const [activityHistory, setActivityHistory] = useState<any[]>([]);
     const [moodHistory, setMoodHistory] = useState<any[]>([]);
@@ -153,16 +154,28 @@ export default function NeuroHealth2View() {
 
     return (
         <div className="bg-[#0a0a0a] text-white min-h-[800px] font-sans selection:bg-purple-500/30 rounded-[40px] overflow-hidden shadow-2xl relative border border-white/5">
-            {/* Work in progress overlay */}
-            <div className="absolute inset-0 z-[200] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
-                <div className="bg-white/5 border border-white/10 p-8 rounded-[2rem] max-w-md shadow-2xl animate-pulse">
-                    <Brain className="w-12 h-12 text-purple-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-white mb-3">Feature Under Development</h2>
-                    <p className="text-white/50 text-sm leading-relaxed">
-                        The Neuro Coach is currently synthesizing your data to provide bespoke wisdom. Prepare for a higher state of self-awareness.
-                    </p>
-                </div>
-            </div>
+
+            {/* Preview banner */}
+            <AnimatePresence>
+              {showBanner && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="absolute top-4 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-2.5 rounded-full bg-purple-950/80 border border-purple-500/30 backdrop-blur-xl shadow-[0_0_30px_rgba(168,85,247,0.15)] text-sm whitespace-nowrap"
+                >
+                  <Brain className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span className="text-white/70"><span className="text-purple-400 font-semibold">Preview</span> — Neuro Coach is under development. AI responses are live via Gemini.</span>
+                  <button
+                    onClick={() => setShowBanner(false)}
+                    className="ml-2 text-white/30 hover:text-white/70 transition-colors text-lg leading-none"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Dynamic Background */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
